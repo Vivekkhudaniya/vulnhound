@@ -1,0 +1,45 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# === Environment ===
+.env
+.venv/
+venv/
+env/
+
+# === Data (large, generated) ===
+data/
+reports/
+*.pdf
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# === Testing ===
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# === Docker ===
+docker-compose.override.yml
+
+# === Knowledge Base (generated embeddings) ===
+# Keep the raw exploit data, ignore generated embeddings
+knowledge/exploits/*.json
+!knowledge/exploits/.gitkeep
+
+# === Foundry (from PoC testing) ===
+out/
+cache/

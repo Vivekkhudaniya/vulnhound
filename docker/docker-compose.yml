@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  vulnhound:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file: ../.env
+    volumes:
+      - ../src:/app/src
+      - ../knowledge:/app/knowledge
+      - ../reports:/app/reports
+      - ../data:/app/data
+    ports:
+      - "8000:8000"  # API server
+    depends_on:
+      - redis
+
+  # Job queue for async audit jobs
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Optional: PostgreSQL for audit history
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: vulnhound
+  #     POSTGRES_USER: vulnhound
+  #     POSTGRES_PASSWORD: vulnhound_dev
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  # pg_data:
