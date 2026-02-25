@@ -196,10 +196,12 @@ def kb_ingest(
         )
 
     if source in ("all", "solodit"):
-        console.print("[yellow]→ Solodit ingestion coming soon[/yellow]")
+        from src.knowledge_base.ingest_solodit import ingest_solodit
+        ingest_solodit(limit=limit)
 
     if source in ("all", "rekt"):
-        console.print("[yellow]→ Rekt News ingestion coming soon[/yellow]")
+        from src.knowledge_base.ingest_rekt import ingest_rekt
+        ingest_rekt(limit=limit)
 
 
 @kb_app.command("search")
