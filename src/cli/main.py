@@ -89,6 +89,11 @@ def audit(
         )
     )
 
+    from pathlib import Path
+    from src.ingester import ingest_repo
+    from src.config import get_settings
+    settings = get_settings()
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -96,8 +101,8 @@ def audit(
     ) as progress:
         # Stage 1
         task = progress.add_task("[red]Stage 1: Ingesting repository...", total=None)
-        # TODO: Implement repo ingestion
-        progress.update(task, description="[red]Stage 1: ✓ Repository ingested")
+        scope = ingest_repo(target, work_dir=Path("./data/repos"))
+        progress.update(task, description=f"[red]Stage 1: OK {len(scope.contracts)} contracts, {scope.total_loc} LOC")
 
         # Stage 2
         task = progress.add_task("[yellow]Stage 2: Running static analysis...", total=None)
