@@ -130,10 +130,18 @@ def audit(
             description=f"[green]Stage 3: OK {len(function_contexts)} functions enriched with KB",
         )
 
-        # Stage 4
+        # Stage 4: LLM multi-pass analysis
         task = progress.add_task("[cyan]Stage 4: LLM deep analysis...", total=None)
-        # TODO: Implement LLM analysis
-        progress.update(task, description="[cyan]Stage 4: ✓ LLM analysis complete")
+        from src.llm import LLMEngine
+        engine = LLMEngine()
+        llm_findings = engine.analyze(function_contexts, scope)
+        progress.update(
+            task,
+            description=(
+                f"[cyan]Stage 4: OK {len(llm_findings)} finding(s) "
+                f"({engine.usage.total_tokens:,} tokens)"
+            ),
+        )
 
         # Stage 5
         task = progress.add_task("[blue]Stage 5: Validating findings...", total=None)
