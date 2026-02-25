@@ -134,14 +134,16 @@ class ChromaVectorStore(VectorStore):
 
         for i, exploit_id in enumerate(results["ids"][0]):
             meta = results["metadatas"][0][i] if results.get("metadatas") else {}
-            distance = results["distances"][0][i] if results.get("distances") else 1.0
+            distance = results["distances"][0][i] if results.get("distances") else 2.0
             doc_text = results["documents"][0][i] if results.get("documents") else ""
+            # ChromaDB L2 distance on normalized vectors: cosine_sim = 1 - (l2^2 / 2)
+            similarity_score = max(0.0, round(1.0 - (distance ** 2) / 2, 4))
 
             exploits.append(
                 RetrievedExploit(
                     exploit_id=exploit_id,
                     protocol=meta.get("protocol", "Unknown"),
-                    similarity_score=max(0, 1 - distance),  # convert distance to similarity
+                    similarity_score=similarity_score,
                     category=meta.get("category", "other"),
                     description=doc_text[:500],
                     loss_usd=meta.get("loss_usd", 0),

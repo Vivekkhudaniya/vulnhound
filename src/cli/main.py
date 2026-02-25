@@ -41,9 +41,11 @@ app.add_typer(kb_app, name="kb")
 
 BANNER = """
 [bold red]
- ╦  ╦╦ ╦╦  ╔╗╔╦ ╦╔═╗╦ ╦╔╗╔╔╦╗
- ╚╗╔╝║ ║║  ║║║╠═╣║ ║║ ║║║║ ║║
-  ╚╝ ╚═╝╩═╝╝╚╝╩ ╩╚═╝╚═╝╝╚╝═╩╝
+ __   ___   _ _     _   _  ___  _   _ _   _ ____
+ \ \ / / | | | |   | \ | |/ _ \| | | | \ | |  _ \\
+  \ V /| | | | |   |  \| | | | | | | |  \| | | | |
+   | | | |_| | |___| |\  | |_| | |_| | |\  | |_| |
+   |_|  \___/|_____|_| \_|\___/ \___/|_| \_|____/
 [/bold red]
 [dim]AI Smart Contract Auditing Agent v0.1.0[/dim]
 """
@@ -178,18 +180,26 @@ def kb_ingest(
     This populates the vector DB with historical DeFi exploits
     that the LLM uses during analysis.
     """
+    from pathlib import Path
+    from src.knowledge_base.ingest_exploits import ingest_defihacklabs
+    from src.config import get_settings
+
     show_banner()
+    settings = get_settings()
     console.print(f"[bold]Ingesting exploits from: {source}[/bold]")
 
     if source in ("all", "defihacklabs"):
-        console.print("[yellow]→ DeFiHackLabs ingestion not yet implemented[/yellow]")
-        console.print("[dim]  Next: implement src/knowledge_base/ingest_exploits.py[/dim]")
+        ingest_defihacklabs(
+            target_dir=Path("./data/repos/DeFiHackLabs"),
+            output_dir=Path(settings.knowledge_base_dir) / "exploits",
+            limit=limit,
+        )
 
     if source in ("all", "solodit"):
-        console.print("[yellow]→ Solodit ingestion not yet implemented[/yellow]")
+        console.print("[yellow]→ Solodit ingestion coming soon[/yellow]")
 
     if source in ("all", "rekt"):
-        console.print("[yellow]→ Rekt News ingestion not yet implemented[/yellow]")
+        console.print("[yellow]→ Rekt News ingestion coming soon[/yellow]")
 
 
 @kb_app.command("search")
@@ -204,11 +214,41 @@ def kb_search(
         vulnhound kb search "reentrancy flash loan"
         vulnhound kb search "price oracle manipulation" -k 10
     """
+    from src.knowledge_base.embedder import ExploitEmbedder
+    from src.knowledge_base.vector_store import ChromaVectorStore
+
     show_banner()
-    console.print(f"[bold]Searching KB for: '{query}' (top {top_k})[/bold]")
-    # TODO: Implement
-    console.print("[yellow]KB search not yet implemented.[/yellow]")
-    console.print("[dim]Next: implement src/knowledge_base/retriever.py[/dim]")
+    console.print(f"[bold]Searching KB for: '{query}' (top {top_k})[/bold]\n")
+
+    store = ChromaVectorStore()
+    embedder = ExploitEmbedder()
+    query_vec = embedder.embed_query(query)
+
+    results = store.search_by_description(query_vec, top_k=top_k)
+
+    if not results:
+        console.print("[yellow]No results found. Have you run 'vulnhound kb ingest' yet?[/yellow]")
+        return
+
+    table = Table(title=f"KB Search: '{query}'", border_style="red")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Exploit ID", style="cyan")
+    table.add_column("Protocol", style="bold")
+    table.add_column("Category")
+    table.add_column("Loss (USD)", justify="right")
+    table.add_column("Score", justify="right")
+
+    for i, r in enumerate(results, 1):
+        table.add_row(
+            str(i),
+            r.exploit_id,
+            r.protocol,
+            r.category if isinstance(r.category, str) else r.category.value,
+            f"${r.loss_usd:,.0f}" if r.loss_usd else "—",
+            f"{r.similarity_score:.3f}",
+        )
+
+    console.print(table)
 
 
 @kb_app.command("stats")
@@ -216,17 +256,19 @@ def kb_stats():
     """
     📊 Show knowledge base statistics.
     """
+    from src.knowledge_base.vector_store import ChromaVectorStore
+
     show_banner()
-    console.print("[bold]Knowledge Base Statistics[/bold]")
-    # TODO: Implement
-    table = Table(border_style="dim")
+    store = ChromaVectorStore()
+    stats = store.get_stats()
+
+    table = Table(title="Knowledge Base Statistics", border_style="dim")
     table.add_column("Metric")
     table.add_column("Value", justify="right")
-    table.add_row("Total Exploits", "[yellow]0 (not yet ingested)[/yellow]")
-    table.add_row("Categories Covered", "0")
-    table.add_row("Chains Covered", "0")
-    table.add_row("Date Range", "—")
-    table.add_row("Vector DB", "ChromaDB (local)")
+    table.add_row("Vector DB", stats["provider"])
+    table.add_row("Code vectors", str(stats["code_vectors"]))
+    table.add_row("Pattern vectors", str(stats["pattern_vectors"]))
+    table.add_row("Description vectors", str(stats["description_vectors"]))
     console.print(table)
 
 
