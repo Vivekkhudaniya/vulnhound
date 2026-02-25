@@ -113,10 +113,22 @@ def audit(
             sev_counts[f.severity.value] = sev_counts.get(f.severity.value, 0) + 1
         progress.update(task, description=f"[yellow]Stage 2: OK {len(static_findings)} findings (H={sev_counts.get('high',0)} M={sev_counts.get('medium',0)})")
 
-        # Stage 3
+        # Stage 3: RAG retrieval
         task = progress.add_task("[green]Stage 3: Retrieving similar exploits...", total=None)
-        # TODO: Implement RAG retrieval
-        progress.update(task, description="[green]Stage 3: ✓ Exploit context loaded")
+        from src.analyzers.fp_filter import filter_findings
+        from src.retriever.retriever import RAGRetriever, build_function_contexts
+        from src.retriever.risk_scorer import score_functions
+
+        filtered_findings = filter_findings(static_findings, contracts=scope.contracts)
+        scored_fns = score_functions(scope, filtered_findings, top_n=20)
+        retriever = RAGRetriever()
+        function_contexts = build_function_contexts(
+            scored_fns, filtered_findings, scope, retriever=retriever, top_k_exploits=5
+        )
+        progress.update(
+            task,
+            description=f"[green]Stage 3: OK {len(function_contexts)} functions enriched with KB",
+        )
 
         # Stage 4
         task = progress.add_task("[cyan]Stage 4: LLM deep analysis...", total=None)
