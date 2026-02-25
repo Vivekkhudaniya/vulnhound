@@ -1,8 +1,11 @@
 """
 Exploit Embedder
 
-Generates embeddings for ExploitDocuments using sentence-transformers.
-No API key required — runs fully locally.
+Generates embeddings for ExploitDocuments using nomic-embed-text-v1.
+- Code-aware: trained on 650M+ text+code pairs
+- 768 dimensions (vs 384 for MiniLM) — higher fidelity
+- Requires task prefixes: search_document: / search_query:
+- No API key — runs fully locally
 
 Each exploit gets 3 embeddings for different retrieval strategies:
 1. code_embedding      → find exploits with similar vulnerable code
@@ -18,13 +21,17 @@ from src.models import ExploitDocument
 
 console = Console()
 
-# Model choice: all-MiniLM-L6-v2 — small (80MB), fast, great for semantic similarity
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+# nomic-embed-text-v1: 768-dim, code+text aware, requires trust_remote_code=True
+# Task prefixes are required for best quality:
+#   "search_document: " → when indexing documents
+#   "search_query: "    → when embedding search queries
+EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
+EMBEDDING_DIM = 768
 
 
 class ExploitEmbedder:
     """
-    Generates 3 embeddings per ExploitDocument using sentence-transformers.
+    Generates 3 embeddings per ExploitDocument using nomic-embed-text-v1.
     Model is loaded once and reused across all documents.
     """
 
@@ -32,9 +39,10 @@ class ExploitEmbedder:
         from sentence_transformers import SentenceTransformer
 
         console.print(f"[dim]Loading embedding model: {model_name}...[/dim]")
-        self.model = SentenceTransformer(model_name)
+        self.model = SentenceTransformer(model_name, trust_remote_code=True)
         self.model_name = model_name
-        console.print(f"[dim]Embedding model loaded (dim={self.model.get_sentence_embedding_dimension()})[/dim]")
+        dim = self.model.get_sentence_embedding_dimension()
+        console.print(f"[dim]Embedding model loaded (dim={dim})[/dim]")
 
     def embed_exploit(self, doc: ExploitDocument) -> dict[str, list[float]]:
         """
@@ -42,24 +50,19 @@ class ExploitEmbedder:
 
         Returns:
             {
-                "code": [...],        # 384-dim vector from vulnerable code snippet
-                "pattern": [...],     # 384-dim vector from attack pattern description
-                "description": [...], # 384-dim vector from natural language description
+                "code": [...],        # 768-dim vector from vulnerable code snippet
+                "pattern": [...],     # 768-dim vector from attack pattern description
+                "description": [...], # 768-dim vector from natural language description
             }
         """
-        # 1. Code embedding — the actual vulnerable code snippet
-        code_text = self._build_code_text(doc)
-
-        # 2. Pattern embedding — structured attack pattern info
-        pattern_text = self._build_pattern_text(doc)
-
-        # 3. Description embedding — human-readable description
-        description_text = self._build_description_text(doc)
+        code_text = "search_document: " + self._build_code_text(doc)
+        pattern_text = "search_document: " + self._build_pattern_text(doc)
+        description_text = "search_document: " + self._build_description_text(doc)
 
         embeddings = self.model.encode(
             [code_text, pattern_text, description_text],
             show_progress_bar=False,
-            normalize_embeddings=True,  # cosine similarity ready
+            normalize_embeddings=True,
         )
 
         return {
@@ -71,13 +74,10 @@ class ExploitEmbedder:
     def embed_batch(
         self, docs: list[ExploitDocument], batch_size: int = 32
     ) -> list[dict[str, list[float]]]:
-        """
-        Embed a batch of exploit documents efficiently.
-        Processes all 3 text types in bulk for speed.
-        """
-        code_texts = [self._build_code_text(d) for d in docs]
-        pattern_texts = [self._build_pattern_text(d) for d in docs]
-        description_texts = [self._build_description_text(d) for d in docs]
+        """Embed a batch of exploit documents efficiently."""
+        code_texts    = ["search_document: " + self._build_code_text(d) for d in docs]
+        pattern_texts = ["search_document: " + self._build_pattern_text(d) for d in docs]
+        desc_texts    = ["search_document: " + self._build_description_text(d) for d in docs]
 
         console.print(f"[dim]Embedding {len(docs)} documents in batches of {batch_size}...[/dim]")
 
@@ -88,21 +88,24 @@ class ExploitEmbedder:
             pattern_texts, batch_size=batch_size, show_progress_bar=False, normalize_embeddings=True
         )
         desc_vecs = self.model.encode(
-            description_texts, batch_size=batch_size, show_progress_bar=False, normalize_embeddings=True
+            desc_texts, batch_size=batch_size, show_progress_bar=False, normalize_embeddings=True
         )
 
         return [
             {
-                "code": code_vecs[i].tolist(),
-                "pattern": pattern_vecs[i].tolist(),
+                "code":        code_vecs[i].tolist(),
+                "pattern":     pattern_vecs[i].tolist(),
                 "description": desc_vecs[i].tolist(),
             }
             for i in range(len(docs))
         ]
 
     def embed_query(self, query: str) -> list[float]:
-        """Embed a search query for KB retrieval."""
-        vec = self.model.encode(query, normalize_embeddings=True)
+        """Embed a search query for KB retrieval. Uses search_query: prefix."""
+        vec = self.model.encode(
+            "search_query: " + query,
+            normalize_embeddings=True,
+        )
         return vec.tolist()
 
     # ----------------------------------------
