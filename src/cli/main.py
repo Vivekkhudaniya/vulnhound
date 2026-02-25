@@ -106,8 +106,12 @@ def audit(
 
         # Stage 2
         task = progress.add_task("[yellow]Stage 2: Running static analysis...", total=None)
-        # TODO: Implement static analysis
-        progress.update(task, description="[yellow]Stage 2: ✓ Static analysis complete")
+        from src.analyzers import analyze_repo, print_findings_table
+        static_findings = analyze_repo(scope)
+        sev_counts = {}
+        for f in static_findings:
+            sev_counts[f.severity.value] = sev_counts.get(f.severity.value, 0) + 1
+        progress.update(task, description=f"[yellow]Stage 2: OK {len(static_findings)} findings (H={sev_counts.get('high',0)} M={sev_counts.get('medium',0)})")
 
         # Stage 3
         task = progress.add_task("[green]Stage 3: Retrieving similar exploits...", total=None)
@@ -162,9 +166,14 @@ def analyze(
     """
     show_banner()
     console.print(f"[bold]Running {tool} on {path}...[/bold]")
-    # TODO: Implement
-    console.print("[yellow]Static analysis module not yet implemented.[/yellow]")
-    console.print("[dim]Next step: implement src/analyzers/slither_runner.py[/dim]")
+
+    from src.ingester import ingest_repo
+    from src.analyzers import analyze_repo, print_findings_table
+
+    scope = ingest_repo(path, work_dir=Path("./data/repos"))
+    findings = analyze_repo(scope, run_slither_flag=(tool in ("slither", "all")),
+                            run_aderyn_flag=(tool in ("aderyn", "all")))
+    print_findings_table(findings, console_out=console)
 
 
 # ============================================
