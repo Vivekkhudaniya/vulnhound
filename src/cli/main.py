@@ -143,35 +143,71 @@ def audit(
             ),
         )
 
-        # Stage 5
+        # Stage 5: Validation
         task = progress.add_task("[blue]Stage 5: Validating findings...", total=None)
-        # TODO: Implement validation
-        progress.update(task, description="[blue]Stage 5: ✓ Findings validated")
+        from src.validator import validate_findings
+        validated_findings = validate_findings(llm_findings, static_findings=filtered_findings)
+        sev_v = {}
+        for f in validated_findings:
+            sev_v[f.severity.value] = sev_v.get(f.severity.value, 0) + 1
+        progress.update(
+            task,
+            description=(
+                f"[blue]Stage 5: OK {len(validated_findings)} finding(s) validated "
+                f"(C={sev_v.get('critical',0)} H={sev_v.get('high',0)} M={sev_v.get('medium',0)})"
+            ),
+        )
 
         if not skip_poc:
-            # Stage 6
+            # Stage 6: PoC generation
             task = progress.add_task("[magenta]Stage 6: Generating PoCs...", total=None)
-            # TODO: Implement PoC generation
-            progress.update(task, description="[magenta]Stage 6: ✓ PoCs generated")
+            from src.poc_gen.skeleton import generate_poc_skeleton
+            poc_results = []
+            poc_findings = [f for f in validated_findings if f.severity.value in ("critical", "high")]
+            for finding in poc_findings[:5]:  # Cap at 5 PoCs to avoid excess generation
+                contract = next((c for c in scope.contracts if c.name == finding.contract), None)
+                if contract:
+                    try:
+                        contract_findings = [
+                            sf for sf in filtered_findings if sf.contract == finding.contract
+                        ]
+                        poc = generate_poc_skeleton(
+                            contract_name=finding.contract,
+                            source_code=open(contract.file_path, encoding="utf-8", errors="replace").read(),
+                            findings=contract_findings,
+                        )
+                        poc_results.append(poc)
+                    except Exception:
+                        pass
+            progress.update(
+                task,
+                description=f"[magenta]Stage 6: OK {len(poc_results)} PoC skeleton(s) generated",
+            )
 
-        # Stage 7
+        # Stage 7: Report generation
         task = progress.add_task("[white]Stage 7: Generating report...", total=None)
-        # TODO: Implement report generation
-        progress.update(task, description="[white]Stage 7: ✓ Report generated")
+        from src.reporter import generate_report
+        report_path = Path(output) if output else Path(f"report_{Path(scope.repo_path).name}.md")
+        report_md = generate_report(validated_findings, scope, output_path=report_path)
+        progress.update(
+            task,
+            description=f"[white]Stage 7: OK Report written to {report_path}",
+        )
 
-    # Summary table (placeholder)
+    # Summary table with real findings
     table = Table(title="Audit Summary", border_style="red")
     table.add_column("Severity", style="bold")
     table.add_column("Count", justify="right")
-    table.add_row("[red]Critical[/red]", "0")
-    table.add_row("[yellow]High[/yellow]", "0")
-    table.add_row("[blue]Medium[/blue]", "0")
-    table.add_row("[dim]Low[/dim]", "0")
-    table.add_row("[dim]Informational[/dim]", "0")
+    table.add_row("[red]Critical[/red]", str(sev_v.get("critical", 0)))
+    table.add_row("[yellow]High[/yellow]", str(sev_v.get("high", 0)))
+    table.add_row("[blue]Medium[/blue]", str(sev_v.get("medium", 0)))
+    table.add_row("[dim]Low[/dim]", str(sev_v.get("low", 0)))
+    table.add_row("[dim]Informational[/dim]", str(sev_v.get("informational", 0)))
     console.print(table)
 
-    console.print("\n[bold green]✓ Audit complete![/bold green]")
-    console.print("[dim]Pipeline connected. Implement each stage to see real results.[/dim]\n")
+    console.print(f"\n[bold green]✓ Audit complete![/bold green]")
+    console.print(f"[dim]Full report: {report_path}[/dim]\n")
+    console.print(f"[dim]Tokens used: {engine.usage.total_tokens:,}[/dim]\n")
 
 
 @app.command()
