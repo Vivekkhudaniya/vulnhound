@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VulnHound — AI Agent Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080810;
+    --bg2: #0e0e1a;
+    --bg3: #13131f;
+    --bg4: #18182a;
+    --border: #22223a;
+    --border2: #2e2e4a;
+    --t1: #eeeef8;
+    --t2: #8888aa;
+    --t3: #44445a;
+    --red: #f04060;
+    --redf: #f0406018;
+    --orange: #f07840;
+    --orangef: #f0784018;
+    --yellow: #d4b840;
+    --yellowf: #d4b84018;
+    --green: #28c76a;
+    --greenf: #28c76a18;
+    --cyan: #18c0d8;
+    --cyanf: #18c0d818;
+    --blue: #4888f8;
+    --bluef: #4888f818;
+    --purple: #a060f8;
+    --purplef: #a060f818;
+    --pink: #e840b0;
+    --pinkf: #e840b018;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--t1);
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    background: rgba(8,8,16,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+
+  .nav-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--t1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 10px var(--red);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--t2);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--t1); }
+
+  .nav-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 4px 12px;
+    border: 1px solid var(--green);
+    border-radius: 100px;
+    color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 100px 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 40%, var(--redf) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 20%, var(--purplef) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 60% 90%, var(--cyanf) 0%, transparent 60%);
+    animation: bgMove 25s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgMove {
+    0% { transform: scale(1) rotate(0deg); }
+    100% { transform: scale(1.05) rotate(2deg); }
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.3;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    max-width: 960px;
+  }
+
+  .hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 18px;
+    border: 1px solid var(--red);
+    border-radius: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--red);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 2.5rem;
+    animation: fadeInUp 0.6s ease both;
+  }
+
+  .hero-chip-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .hero h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(3rem, 7vw, 6rem);
+    font-weight: 700;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
+    animation: fadeInUp 0.6s 0.1s ease both;
+  }
+
+  .hero h1 .grad {
+    background: linear-gradient(135deg, var(--red) 0%, var(--orange) 50%, var(--yellow) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--t2);
+    max-width: 620px;
+    margin: 0 auto 3rem;
+    animation: fadeInUp 0.6s 0.2s ease both;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 4rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeInUp 0.6s 0.3s ease both;
+  }
+
+  .hero-stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--red);
+  }
+
+  .hero-stat-lbl {
+    font-size: 0.78rem;
+    color: var(--t3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 2px;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SECTION */
+  .section {
+    padding: 7rem 2rem;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--red);
+    margin-bottom: 0.6rem;
+  }
+
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.8rem;
+  }
+
+  .section-desc {
+    color: var(--t2);
+    font-size: 1rem;
+    max-width: 680px;
+    margin-bottom: 4rem;
+  }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border2), transparent);
+    margin: 0 2rem;
+  }
+
+  /* ── PIPELINE FLOW ── */
+  .pipeline-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  .pipeline-line {
+    position: absolute;
+    left: 30px;
+    top: 30px;
+    bottom: 30px;
+    width: 2px;
+    background: linear-gradient(to bottom,
+      var(--red), var(--orange), var(--yellow), var(--green), var(--cyan), var(--blue), var(--purple));
+    z-index: 0;
+  }
+
+  .pipe-stage {
+    display: flex;
+    gap: 2rem;
+    padding: 1.2rem 0;
+    position: relative;
+  }
+
+  .pipe-num {
+    width: 60px;
+    min-width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    z-index: 1;
+    flex-shrink: 0;
+    background: var(--bg);
+    transition: all 0.3s;
+  }
+
+  .pipe-body {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.6rem 2rem;
+    flex: 1;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pipe-body::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .pipe-body:hover {
+    border-color: var(--border2);
+    background: var(--bg4);
+    transform: translateX(4px);
+  }
+
+  .pipe-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .pipe-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .pipe-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .status-done { background: var(--greenf); color: var(--green); border: 1px solid var(--green); }
+  .status-partial { background: var(--yellowf); color: var(--yellow); border: 1px solid var(--yellow); }
+  .status-todo { background: var(--redf); color: var(--red); border: 1px solid var(--red); }
+
+  .pipe-desc {
+    color: var(--t2);
+    font-size: 0.88rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .pipe-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .pipe-detail {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+  }
+
+  .pipe-detail-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--t3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 0.3rem;
+  }
+
+  .pipe-detail-val {
+    font-size: 0.85rem;
+    color: var(--t1);
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 5px;
+    border: 1px solid;
+  }
+
+  /* Stage colors */
+  .s1 .pipe-num { border-color: var(--red); color: var(--red); }
+  .s1 .pipe-body::before { background: var(--red); }
+  .s1 .tag { border-color: var(--red); color: var(--red); background: var(--redf); }
+
+  .s2 .pipe-num { border-color: var(--orange); color: var(--orange); }
+  .s2 .pipe-body::before { background: var(--orange); }
+  .s2 .tag { border-color: var(--orange); color: var(--orange); background: var(--orangef); }
+
+  .s3 .pipe-num { border-color: var(--yellow); color: var(--yellow); }
+  .s3 .pipe-body::before { background: var(--yellow); }
+  .s3 .tag { border-color: var(--yellow); color: var(--yellow); background: var(--yellowf); }
+
+  .s4 .pipe-num { border-color: var(--green); color: var(--green); }
+  .s4 .pipe-body::before { background: var(--green); }
+  .s4 .tag { border-color: var(--green); color: var(--green); background: var(--greenf); }
+
+  .s5 .pipe-num { border-color: var(--cyan); color: var(--cyan); }
+  .s5 .pipe-body::before { background: var(--cyan); }
+  .s5 .tag { border-color: var(--cyan); color: var(--cyan); background: var(--cyanf); }
+
+  .s6 .pipe-num { border-color: var(--blue); color: var(--blue); }
+  .s6 .pipe-body::before { background: var(--blue); }
+  .s6 .tag { border-color: var(--blue); color: var(--blue); background: var(--bluef); }
+
+  .s7 .pipe-num { border-color: var(--purple); color: var(--purple); }
+  .s7 .pipe-body::before { background: var(--purple); }
+  .s7 .tag { border-color: var(--purple); color: var(--purple); background: var(--purplef); }
+
+  /* DATA FLOW */
+  .flow-diagram {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    overflow-x: auto;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: center;
+    flex-wrap: nowrap;
+    min-width: 800px;
+  }
+
+  .flow-node {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 0.7rem 1.1rem;
+    text-align: center;
+    min-width: 110px;
+    position: relative;
+  }
+
+  .flow-node-icon { font-size: 1.2rem; margin-bottom: 3px; }
+
+  .flow-node-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--t1);
+    font-weight: 600;
+  }
+
+  .flow-node-sub {
+    font-size: 0.65rem;
+    color: var(--t3);
+    margin-top: 2px;
+  }
+
+  .flow-arrow {
+    font-size: 1rem;
+    color: var(--border2);
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* LLM PASSES */
+  .passes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .pass-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .pass-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-3px);
+  }
+
+  .pass-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .pass-b::before { background: linear-gradient(90deg, var(--cyan), var(--blue)); }
+  .pass-c::before { background: linear-gradient(90deg, var(--blue), var(--purple)); }
+  .pass-d::before { background: linear-gradient(90deg, var(--purple), var(--pink)); }
+
+  .pass-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.5rem;
+    font-weight: 700;
+    opacity: 0.06;
+    position: absolute;
+    top: 1rem; right: 1.5rem;
+    line-height: 1;
+  }
+
+  .pass-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    border: 1px solid;
+    display: inline-block;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .pass-b .pass-chip { border-color: var(--cyan); color: var(--cyan); background: var(--cyanf); }
+  .pass-c .pass-chip { border-color: var(--blue); color: var(--blue); background: var(--bluef); }
+  .pass-d .pass-chip { border-color: var(--purple); color: var(--purple); background: var(--purplef); }
+
+  .pass-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .pass-desc {
+    color: var(--t2);
+    font-size: 0.87rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .pass-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .pass-meta-row {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .pass-meta-key {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--t3);
+    min-width: 70px;
+    font-size: 0.78rem;
+  }
+
+  .pass-meta-val { color: var(--t2); }
+
+  /* RAG DIAGRAM */
+  .rag-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .rag-queries, .rag-results {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .rag-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 130px;
+    align-self: center;
+  }
+
+  .rag-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+  }
+
+  .rag-box-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+
+  .rag-box-desc {
+    font-size: 0.8rem;
+    color: var(--t2);
+  }
+
+  .rag-merge {
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    text-align: center;
+  }
+
+  .rag-merge-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--bg);
+    margin-bottom: 0.3rem;
+  }
+
+  .rag-merge-sub {
+    font-size: 0.75rem;
+    color: rgba(0,0,0,0.6);
+  }
+
+  .rag-arrow {
+    font-size: 1.2rem;
+    color: var(--t3);
+    text-align: center;
+  }
+
+  /* KB STATUS */
+  .kb-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .kb-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+  }
+
+  .kb-card:hover { border-color: var(--border2); }
+
+  .kb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+  }
+
+  .kb-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .kb-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--t3);
+  }
+
+  .kb-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+    margin-bottom: 0.6rem;
+  }
+
+  .kb-fill { height: 100%; border-radius: 2px; }
+
+  .kb-status-text {
+    font-size: 0.78rem;
+    color: var(--t3);
+  }
+
+  /* TECH STACK */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .stack-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+  }
+
+  .stack-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+  }
+
+  .stack-category {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--t3);
+    margin-bottom: 0.8rem;
+  }
+
+  .stack-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .stack-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .stack-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* DATA MODELS */
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .model-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .model-card:hover { border-color: var(--border2); }
+
+  .model-header {
+    padding: 1rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .model-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .model-body {
+    padding: 1rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .model-field {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    align-items: flex-start;
+  }
+
+  .model-field-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cyan);
+    min-width: 110px;
+    font-size: 0.78rem;
+  }
+
+  .model-field-type {
+    color: var(--t3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+  }
+
+  /* ROADMAP */
+  .roadmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .roadmap-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.6rem;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .roadmap-card:hover { border-color: var(--border2); }
+
+  .roadmap-card.done { border-color: var(--green); }
+  .roadmap-card.partial { border-color: var(--yellow); }
+
+  .roadmap-phase {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--t3);
+    margin-bottom: 0.4rem;
+  }
+
+  .roadmap-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+  }
+
+  .roadmap-items {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .roadmap-item {
+    font-size: 0.83rem;
+    color: var(--t2);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ri-done { color: var(--green); flex-shrink: 0; }
+  .ri-partial { color: var(--yellow); flex-shrink: 0; }
+  .ri-todo { color: var(--t3); flex-shrink: 0; }
+
+  /* CLI */
+  .cli-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+  }
+
+  .cli-bar {
+    background: var(--border);
+    padding: 0.6rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cli-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .cli-body {
+    padding: 1.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-x: auto;
+  }
+
+  .cli-line { display: flex; gap: 0.5rem; white-space: nowrap; }
+  .cli-prompt { color: var(--green); flex-shrink: 0; }
+  .cli-cmd { color: var(--t1); }
+  .cli-comment { color: var(--t3); }
+  .cli-out { color: var(--t2); padding-left: 1.5rem; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 3rem 2rem;
+    text-align: center;
+    color: var(--t3);
+    font-size: 0.82rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  footer span { color: var(--t2); }
+
+  /* PROGRESS BAR */
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  /* UTIL */
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .t-red { color: var(--red); }
+  .t-green { color: var(--green); }
+  .t-yellow { color: var(--yellow); }
+  .t-cyan { color: var(--cyan); }
+  .t-purple { color: var(--purple); }
+  .t-orange { color: var(--orange); }
+  .t-blue { color: var(--blue); }
+  .t-muted { color: var(--t3); }
+
+  /* Checklist */
+  .checklist { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+  .checklist li { font-size: 0.85rem; color: var(--t2); display: flex; align-items: flex-start; gap: 8px; }
+
+  /* Scrollable side-nav */
+  .side-nav {
+    position: fixed;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+  }
+
+  .side-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border2);
+    cursor: pointer;
+    transition: all 0.3s;
+    title: attr(data-label);
+  }
+
+  .side-dot:hover, .side-dot.active {
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+  }
+
+  @media (max-width: 768px) {
+    .side-nav { display: none; }
+    nav { padding: 0 1.2rem; }
+    .nav-links { display: none; }
+    .rag-grid { grid-template-columns: 1fr; }
+    .flow-row { min-width: 600px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    VULNHOUND
+  </div>
+  <ul class="nav-links">
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#llm">LLM Engine</a></li>
+    <li><a href="#rag">RAG</a></li>
+    <li><a href="#kb">Knowledge Base</a></li>
+    <li><a href="#models">Data Models</a></li>
+    <li><a href="#stack">Tech Stack</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+  </ul>
+  <div class="nav-badge">All 7 Stages Live</div>
+</nav>
+
+<!-- SIDE DOTS -->
+<div class="side-nav" id="sideNav">
+  <div class="side-dot" data-section="hero"></div>
+  <div class="side-dot" data-section="pipeline"></div>
+  <div class="side-dot" data-section="flow"></div>
+  <div class="side-dot" data-section="llm"></div>
+  <div class="side-dot" data-section="rag"></div>
+  <div class="side-dot" data-section="kb"></div>
+  <div class="side-dot" data-section="models"></div>
+  <div class="side-dot" data-section="stack"></div>
+  <div class="side-dot" data-section="cli"></div>
+  <div class="side-dot" data-section="roadmap"></div>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-chip">
+      <div class="hero-chip-dot"></div>
+      AI-Powered Smart Contract Auditing Agent
+    </div>
+    <h1>VULN<span class="grad">HOUND</span></h1>
+    <p class="hero-sub">
+      A fully autonomous 7-stage AI auditing pipeline combining static analysis, RAG-augmented exploit retrieval, and multi-pass LLM reasoning to find vulnerabilities in Solidity smart contracts.
+    </p>
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-val">7</div>
+        <div class="hero-stat-lbl">Pipeline Stages</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">671+</div>
+        <div class="hero-stat-lbl">KB Vectors</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">3</div>
+        <div class="hero-stat-lbl">LLM Passes</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">7.3K</div>
+        <div class="hero-stat-lbl">Lines of Python</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">37</div>
+        <div class="hero-stat-lbl">Modules</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PIPELINE -->
+<section class="section" id="pipeline">
+  <div class="section-label">Architecture</div>
+  <div class="section-title">7-Stage Audit Pipeline</div>
+  <div class="section-desc">Each stage transforms the input, enriching it with more context before handing off to the next. Static tools catch deterministic bugs; RAG adds historical exploit context; LLM reasons across all signals.</div>
+
+  <div class="pipeline-wrap">
+    <div class="pipeline-line"></div>
+
+    <!-- Stage 1 -->
+    <div class="pipe-stage s1">
+      <div class="pipe-num">01</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-red">Repository Ingestion</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Clones or validates a local Solidity repository. Parses every .sol file via AST, detects proxy patterns, builds a contract dependency graph, and resolves compiler version and remappings.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Module</div>
+            <div class="pipe-detail-val mono">src/ingester/</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Output</div>
+            <div class="pipe-detail-val">ProjectScope</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Proxy Detection</div>
+            <div class="pipe-detail-val">UUPS · Transparent · Diamond</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Frameworks</div>
+            <div class="pipe-detail-val">Foundry · Hardhat · Truffle</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">AST Parser</span>
+          <span class="tag">Git Clone</span>
+          <span class="tag">Proxy Detector</span>
+          <span class="tag">Dep Graph</span>
+          <span class="tag">Solidity Resolver</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 2 -->
+    <div class="pipe-stage s2">
+      <div class="pipe-num">02</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-orange">Static Analysis</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Runs Slither and Aderyn in parallel. Parses their JSON output into a unified finding format, applies false-positive filters using context-aware rules, deduplicates by detector+contract+line, and sorts by severity.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Module</div>
+            <div class="pipe-detail-val mono">src/analyzers/</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Output</div>
+            <div class="pipe-detail-val">list[StaticAnalysisFinding]</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Tools</div>
+            <div class="pipe-detail-val">Slither + Aderyn</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">FP Filter</div>
+            <div class="pipe-detail-val">Context-aware rules</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">Slither</span>
+          <span class="tag">Aderyn</span>
+          <span class="tag">FP Filter</span>
+          <span class="tag">Deduplication</span>
+          <span class="tag">Severity Sort</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 3 -->
+    <div class="pipe-stage s3">
+      <div class="pipe-num">03</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-yellow">Knowledge Base + Embeddings</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Embeds historical exploit documents into three ChromaDB collections (code · patterns · descriptions). Uses all-MiniLM-L6-v2 (384-dim, local) — no API key required. DeFiHackLabs parsed and indexed. Solodit + Rekt scrapers implemented but not yet wired to CLI.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Module</div>
+            <div class="pipe-detail-val mono">src/knowledge_base/</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Vectors (live)</div>
+            <div class="pipe-detail-val t-green">671+ in ChromaDB</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Embedder</div>
+            <div class="pipe-detail-val">all-MiniLM-L6-v2 (384-dim)</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Collections</div>
+            <div class="pipe-detail-val">code · patterns · descriptions</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">ChromaDB</span>
+          <span class="tag">sentence-transformers</span>
+          <span class="tag">DeFiHackLabs ✓</span>
+          <span class="tag">Solodit (pending)</span>
+          <span class="tag">Rekt News (pending)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 4 -->
+    <div class="pipe-stage s4">
+      <div class="pipe-num">04</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-green">RAG Retriever</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Scores every function by risk (payable, external, access control, severity of static findings) and selects the top-N for deep analysis. For each function, fires three embedding queries and merges results with Reciprocal Rank Fusion (RRF, k=60). Returns top-5 similar historical exploits per function.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Module</div>
+            <div class="pipe-detail-val mono">src/retriever/</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Output</div>
+            <div class="pipe-detail-val">list[FunctionContext]</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Fusion</div>
+            <div class="pipe-detail-val">RRF (k=60)</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Noise Cutoff</div>
+            <div class="pipe-detail-val">min_score = 0.20</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">Triple-Query RRF</span>
+          <span class="tag">Risk Scorer</span>
+          <span class="tag">Top-N Selection</span>
+          <span class="tag">Lazy Loading</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 5 -->
+    <div class="pipe-stage s5">
+      <div class="pipe-num">05</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-cyan">LLM Multi-Pass Analysis</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Three targeted Claude API calls audit the codebase from different angles. All findings are emitted via structured tool-use (JSON schema), eliminating fragile regex parsing. Built-in exponential backoff handles rate limits.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Module</div>
+            <div class="pipe-detail-val mono">src/llm/</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Output</div>
+            <div class="pipe-detail-val">list[Finding]</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Primary Model</div>
+            <div class="pipe-detail-val">claude-sonnet-4-6</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Confidence Filter</div>
+            <div class="pipe-detail-val">≥ 0.7 (configurable)</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">Pass B: Function Audit</span>
+          <span class="tag">Pass C: Cross-Contract</span>
+          <span class="tag">Pass D: Economic</span>
+          <span class="tag">Tool-Use Output</span>
+          <span class="tag">Retry + Backoff</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 6 -->
+    <div class="pipe-stage s6">
+      <div class="pipe-num">06</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-blue">Validator + De-duplicator</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Deduplicates findings across all three passes using Jaccard token similarity. Rescores severity using a CVSS-inspired formula (Exploitability × Impact × Likelihood). Never downgrades CRITICAL or HIGH findings.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Module</div>
+            <div class="pipe-detail-val mono">src/validator/</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Dedup</div>
+            <div class="pipe-detail-val">Jaccard ≥ 0.6 (same fn)</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Scorer</div>
+            <div class="pipe-detail-val">E × I × L (1–27 → severity)</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Winner Rule</div>
+            <div class="pipe-detail-val">Highest confidence wins</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">Jaccard Dedup</span>
+          <span class="tag">CVSS-style Scoring</span>
+          <span class="tag">No-downgrade Rule</span>
+          <span class="tag">validated=True Flag</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 7 -->
+    <div class="pipe-stage s7">
+      <div class="pipe-num">07</div>
+      <div class="pipe-body">
+        <div class="pipe-header">
+          <div class="pipe-title t-purple">PoC Generation + Report</div>
+          <div class="pipe-status status-done">✓ Done</div>
+        </div>
+        <div class="pipe-desc">Generates a Foundry test scaffold (with attack contract, interface, TODO steps, flash loan callback if needed) for each confirmed finding. Produces a Code4rena-style Markdown audit report with executive summary, per-finding detail, historical exploit references, and recommended fixes.</div>
+        <div class="pipe-details">
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">PoC Module</div>
+            <div class="pipe-detail-val mono">src/poc_gen/skeleton.py</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Report Module</div>
+            <div class="pipe-detail-val mono">src/reporter/markdown.py</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">PoC Type</div>
+            <div class="pipe-detail-val">Foundry scaffold + TODOs</div>
+          </div>
+          <div class="pipe-detail">
+            <div class="pipe-detail-label">Report Style</div>
+            <div class="pipe-detail-val">Code4rena Markdown</div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">Foundry PoC</span>
+          <span class="tag">Flash Loan Scaffold</span>
+          <span class="tag">Executive Summary</span>
+          <span class="tag">Historical Refs</span>
+          <span class="tag">Recommended Fixes</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- DATA FLOW -->
+<section class="section" id="flow">
+  <div class="section-label">Data Flow</div>
+  <div class="section-title">End-to-End Signal Propagation</div>
+  <div class="section-desc">Each model passes enriched context downstream — static findings feed RAG queries; RAG results feed LLM prompts; LLM findings feed the validator.</div>
+
+  <div class="flow-diagram">
+    <div class="flow-row">
+      <div class="flow-node">
+        <div class="flow-node-icon">📁</div>
+        <div class="flow-node-name">Repo / URL</div>
+        <div class="flow-node-sub">Input</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">🔍</div>
+        <div class="flow-node-name">ProjectScope</div>
+        <div class="flow-node-sub">AST + Dep Graph</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">⚡</div>
+        <div class="flow-node-name">StaticFindings</div>
+        <div class="flow-node-sub">Slither + Aderyn</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">🧠</div>
+        <div class="flow-node-name">FunctionContext</div>
+        <div class="flow-node-sub">+ RAG exploits</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">🤖</div>
+        <div class="flow-node-name">LLM Findings</div>
+        <div class="flow-node-sub">3 passes</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">✅</div>
+        <div class="flow-node-name">Validated</div>
+        <div class="flow-node-sub">Dedup + Rescore</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="flow-node-icon">📄</div>
+        <div class="flow-node-name">Report + PoC</div>
+        <div class="flow-node-sub">Markdown output</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- LLM MULTI-PASS -->
+<section class="section" id="llm">
+  <div class="section-label">Stage 5</div>
+  <div class="section-title">LLM Multi-Pass Engine</div>
+  <div class="section-desc">Three targeted Claude calls audit the codebase from different angles. Findings are emitted via <span class="mono t-cyan">report_finding</span> tool-use blocks — structured JSON, no regex parsing.</div>
+
+  <div class="passes-grid">
+
+    <div class="pass-card pass-b">
+      <div class="pass-id">B</div>
+      <div class="pass-chip">Pass B</div>
+      <div class="pass-title">Function Audit</div>
+      <div class="pass-desc">One API call per high-risk function. Full source + static findings + top-5 similar historical exploits as context. Catches code-level vulnerabilities: reentrancy, integer overflow, missing checks, unsafe casts.</div>
+      <div class="pass-meta">
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Model</span>
+          <span class="pass-meta-val t-cyan">claude-sonnet-4-6</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Scope</span>
+          <span class="pass-meta-val">Per function (top-N by risk score)</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Source</span>
+          <span class="pass-meta-val mono">LLM_FUNCTION_AUDIT</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Context</span>
+          <span class="pass-meta-val">Source + findings + RAG exploits</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pass-card pass-c">
+      <div class="pass-id">C</div>
+      <div class="pass-chip">Pass C</div>
+      <div class="pass-title">Cross-Contract Analysis</div>
+      <div class="pass-desc">One API call per contract with external dependencies. Analyses trust boundaries, callback patterns, delegatecall chains, and flash loan re-entry paths across contract boundaries.</div>
+      <div class="pass-meta">
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Model</span>
+          <span class="pass-meta-val t-blue">claude-sonnet-4-6</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Scope</span>
+          <span class="pass-meta-val">Per contract (with ext. deps)</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Source</span>
+          <span class="pass-meta-val mono">LLM_CROSS_CONTRACT</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Context</span>
+          <span class="pass-meta-val">Full contract + call graph</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pass-card pass-d">
+      <div class="pass-id">D</div>
+      <div class="pass-chip">Pass D</div>
+      <div class="pass-title">Economic Audit</div>
+      <div class="pass-desc">Single project-wide call using a compact project summary (not full source). Targets protocol-level threats: flash loan attacks, oracle manipulation, MEV / sandwich, governance exploits, price curve issues.</div>
+      <div class="pass-meta">
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Model</span>
+          <span class="pass-meta-val t-purple">claude-haiku-4-5</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Scope</span>
+          <span class="pass-meta-val">Entire project (1 call)</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Source</span>
+          <span class="pass-meta-val mono">LLM_ECONOMIC</span>
+        </div>
+        <div class="pass-meta-row">
+          <span class="pass-meta-key">Context</span>
+          <span class="pass-meta-val">Project summary + tokenomics</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tool use note -->
+  <div style="margin-top:2rem; background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:1.5rem 2rem;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;margin-bottom:0.5rem;">
+      <span class="t-cyan">report_finding</span> <span class="t-muted">— structured tool-use schema</span>
+    </div>
+    <div style="font-size:0.82rem;color:var(--t2);display:flex;flex-wrap:wrap;gap:1rem;">
+      <span><span class="mono t-cyan">title</span> · <span class="mono t-cyan">severity</span> · <span class="mono t-cyan">category</span> · <span class="mono t-cyan">confidence</span> · <span class="mono t-cyan">location</span></span>
+      <span><span class="mono t-cyan">description</span> · <span class="mono t-cyan">impact</span> · <span class="mono t-cyan">exploit_scenario</span> · <span class="mono t-cyan">recommendation</span></span>
+    </div>
+    <div style="margin-top:0.8rem;font-size:0.8rem;color:var(--t3);">
+      Claude emits each finding as a tool_use block — guaranteed JSON structure, no regex extraction needed. Low-confidence findings (below threshold) are discarded before validation.
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- RAG -->
+<section class="section" id="rag">
+  <div class="section-label">Stage 4</div>
+  <div class="section-title">Triple-Query RAG + RRF Fusion</div>
+  <div class="section-desc">Three separate embedding queries against three ChromaDB collections are merged with Reciprocal Rank Fusion. Each query type captures a different angle of similarity — code structure, vulnerability pattern, and natural language semantics.</div>
+
+  <div class="rag-grid">
+    <div class="rag-queries">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:2px;margin-bottom:0.5rem;">3 Query Vectors</div>
+      <div class="rag-box">
+        <div class="rag-box-title t-green">① Code Query</div>
+        <div class="rag-box-desc">Embed the raw function source code. Retrieves exploits with structurally similar Solidity.</div>
+      </div>
+      <div class="rag-box">
+        <div class="rag-box-title t-cyan">② Pattern Query</div>
+        <div class="rag-box-desc">Embed static findings + severity labels. Retrieves exploits with matching vulnerability patterns.</div>
+      </div>
+      <div class="rag-box">
+        <div class="rag-box-title t-purple">③ Semantic Query</div>
+        <div class="rag-box-desc">Embed natural language risk description. Retrieves exploits via semantic similarity.</div>
+      </div>
+    </div>
+
+    <div class="rag-center">
+      <div class="rag-arrow">→</div>
+      <div class="rag-merge">
+        <div class="rag-merge-title">RRF Fusion</div>
+        <div class="rag-merge-sub">k = 60<br>score(d) = Σ 1/(k + rank)</div>
+      </div>
+      <div class="rag-arrow">→</div>
+    </div>
+
+    <div class="rag-results">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:2px;margin-bottom:0.5rem;">Output per Function</div>
+      <div class="rag-box">
+        <div class="rag-box-title t-yellow">Top-5 Similar Exploits</div>
+        <div class="rag-box-desc">RetrievedExploit objects ranked by merged RRF score. Noise cutoff: min_score ≥ 0.20.</div>
+      </div>
+      <div class="rag-box">
+        <div class="rag-box-title t-orange">FunctionContext</div>
+        <div class="rag-box-desc">Function source + static findings + similar exploits — the full context passed to LLM.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Scorer -->
+  <div style="margin-top:2rem;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--t2);margin-bottom:1rem;">Function Risk Scorer — selects top-N functions for deep analysis</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.8rem;">
+      <div class="pipe-detail"><div class="pipe-detail-label">+3 pts</div><div class="pipe-detail-val">public / external function</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+3 pts</div><div class="pipe-detail-val">payable (handles ETH)</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+3 pts</div><div class="pipe-detail-val">CRITICAL Slither finding</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+2 pts</div><div class="pipe-detail-val">HIGH-value fn name (withdraw, swap…)</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+2 pts</div><div class="pipe-detail-val">external calls present</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+2 pts</div><div class="pipe-detail-val">no access control modifier</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+2 pts</div><div class="pipe-detail-val">HIGH Slither finding</div></div>
+      <div class="pipe-detail"><div class="pipe-detail-label">+1 pt</div><div class="pipe-detail-val">MEDIUM finding / proxy contract</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- KNOWLEDGE BASE -->
+<section class="section" id="kb">
+  <div class="section-label">Stage 3</div>
+  <div class="section-title">Knowledge Base Status</div>
+  <div class="section-desc">Historical exploit data powers RAG retrieval. Currently 671+ vectors live in ChromaDB. Solodit and Rekt scrapers are implemented — just need wiring to the CLI ingest command.</div>
+
+  <div class="kb-grid">
+    <div class="kb-card">
+      <div class="kb-header">
+        <div class="kb-name t-green">DeFiHackLabs</div>
+        <div class="kb-count">671 vectors</div>
+      </div>
+      <div class="kb-bar"><div class="kb-fill" style="width:100%;background:var(--green);"></div></div>
+      <div class="kb-status-text" style="color:var(--green);">✓ Ingested and live in ChromaDB</div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--t3);">Markdown exploit write-ups parsed. 3 embeddings per exploit: code · pattern · description.</div>
+    </div>
+
+    <div class="kb-card">
+      <div class="kb-header">
+        <div class="kb-name t-yellow">Solodit</div>
+        <div class="kb-count">10K+ potential</div>
+      </div>
+      <div class="kb-bar"><div class="kb-fill" style="width:60%;background:var(--yellow);"></div></div>
+      <div class="kb-status-text" style="color:var(--yellow);">⚠ Code written, not wired to CLI</div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--t3);">API client in <span class="mono">ingest_solodit.py</span>. Needs one line added to the CLI kb ingest command.</div>
+    </div>
+
+    <div class="kb-card">
+      <div class="kb-header">
+        <div class="kb-name t-yellow">Rekt News</div>
+        <div class="kb-count">700+ post-mortems</div>
+      </div>
+      <div class="kb-bar"><div class="kb-fill" style="width:60%;background:var(--yellow);"></div></div>
+      <div class="kb-status-text" style="color:var(--yellow);">⚠ Scraper written, not wired to CLI</div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--t3);">HTML scraper in <span class="mono">ingest_rekt.py</span>. DeFi post-mortem narrative + loss amounts + attack method.</div>
+    </div>
+
+    <div class="kb-card">
+      <div class="kb-header">
+        <div class="kb-name t-red">OWASP SC Top 10</div>
+        <div class="kb-count">—</div>
+      </div>
+      <div class="kb-bar"><div class="kb-fill" style="width:0%;background:var(--red);"></div></div>
+      <div class="kb-status-text" style="color:var(--red);">✗ Not implemented</div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--t3);">Structured vulnerability taxonomy. High signal-to-noise — good next addition.</div>
+    </div>
+
+    <div class="kb-card">
+      <div class="kb-header">
+        <div class="kb-name t-red">Code4rena / Sherlock</div>
+        <div class="kb-count">50K+ potential</div>
+      </div>
+      <div class="kb-bar"><div class="kb-fill" style="width:0%;background:var(--red);"></div></div>
+      <div class="kb-status-text" style="color:var(--red);">✗ Not implemented</div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--t3);">Largest source of real-world audit findings. Would dramatically improve retrieval precision.</div>
+    </div>
+
+    <div class="kb-card">
+      <div class="kb-header">
+        <div class="kb-name t-orange">Vuln Patterns KB</div>
+        <div class="kb-count">Built-in</div>
+      </div>
+      <div class="kb-bar"><div class="kb-fill" style="width:100%;background:var(--orange);"></div></div>
+      <div class="kb-status-text" style="color:var(--orange);">✓ 931-line curated pattern library</div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--t3);">Reentrancy, flash loans, oracle, price manipulation, access control, governance — all embedded.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- DATA MODELS -->
+<section class="section" id="models">
+  <div class="section-label">Data Models</div>
+  <div class="section-title">Core Pydantic Schemas</div>
+  <div class="section-desc">15 Pydantic models form the data spine of the pipeline. Each stage consumes the previous stage's output model.</div>
+
+  <div class="model-grid">
+
+    <div class="model-card">
+      <div class="model-header" style="border-color:var(--red);">
+        <span class="t-red">◆</span>
+        <span class="model-name">ProjectScope</span>
+      </div>
+      <div class="model-body">
+        <div class="model-field"><span class="model-field-name">contracts</span><span class="model-field-type">list[ContractInfo]</span></div>
+        <div class="model-field"><span class="model-field-name">framework</span><span class="model-field-type">str (foundry/hardhat)</span></div>
+        <div class="model-field"><span class="model-field-name">compiler_version</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">dependency_graph</span><span class="model-field-type">dict[str, list[str]]</span></div>
+        <div class="model-field"><span class="model-field-name">total_loc</span><span class="model-field-type">int</span></div>
+      </div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-header" style="border-color:var(--orange);">
+        <span class="t-orange">◆</span>
+        <span class="model-name">StaticAnalysisFinding</span>
+      </div>
+      <div class="model-body">
+        <div class="model-field"><span class="model-field-name">tool</span><span class="model-field-type">str (slither/aderyn)</span></div>
+        <div class="model-field"><span class="model-field-name">detector</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">severity</span><span class="model-field-type">Severity enum</span></div>
+        <div class="model-field"><span class="model-field-name">contract</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">function</span><span class="model-field-type">str | None</span></div>
+        <div class="model-field"><span class="model-field-name">line</span><span class="model-field-type">int | None</span></div>
+      </div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-header" style="border-color:var(--green);">
+        <span class="t-green">◆</span>
+        <span class="model-name">FunctionContext</span>
+      </div>
+      <div class="model-body">
+        <div class="model-field"><span class="model-field-name">function</span><span class="model-field-type">FunctionInfo</span></div>
+        <div class="model-field"><span class="model-field-name">contract</span><span class="model-field-type">ContractInfo</span></div>
+        <div class="model-field"><span class="model-field-name">static_findings</span><span class="model-field-type">list[StaticAnalysisFinding]</span></div>
+        <div class="model-field"><span class="model-field-name">similar_exploits</span><span class="model-field-type">list[RetrievedExploit]</span></div>
+        <div class="model-field"><span class="model-field-name">cross_contract_calls</span><span class="model-field-type">list[str]</span></div>
+      </div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-header" style="border-color:var(--cyan);">
+        <span class="t-cyan">◆</span>
+        <span class="model-name">Finding</span>
+      </div>
+      <div class="model-body">
+        <div class="model-field"><span class="model-field-name">id</span><span class="model-field-type">str (VH-001…)</span></div>
+        <div class="model-field"><span class="model-field-name">title</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">severity</span><span class="model-field-type">Severity enum</span></div>
+        <div class="model-field"><span class="model-field-name">category</span><span class="model-field-type">VulnCategory enum</span></div>
+        <div class="model-field"><span class="model-field-name">confidence</span><span class="model-field-type">float (0–1)</span></div>
+        <div class="model-field"><span class="model-field-name">location</span><span class="model-field-type">contract:fn:line</span></div>
+        <div class="model-field"><span class="model-field-name">source</span><span class="model-field-type">FindingSource enum</span></div>
+        <div class="model-field"><span class="model-field-name">analysis_pass</span><span class="model-field-type">AnalysisPass enum</span></div>
+        <div class="model-field"><span class="model-field-name">validated</span><span class="model-field-type">bool</span></div>
+        <div class="model-field"><span class="model-field-name">similar_exploits</span><span class="model-field-type">list[RetrievedExploit]</span></div>
+      </div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-header" style="border-color:var(--yellow);">
+        <span class="t-yellow">◆</span>
+        <span class="model-name">ExploitDocument</span>
+      </div>
+      <div class="model-body">
+        <div class="model-field"><span class="model-field-name">protocol</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">vuln_pattern</span><span class="model-field-type">VulnCategory</span></div>
+        <div class="model-field"><span class="model-field-name">code_context</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">mechanism</span><span class="model-field-type">str</span></div>
+        <div class="model-field"><span class="model-field-name">loss_usd</span><span class="model-field-type">float | None</span></div>
+        <div class="model-field"><span class="model-field-name">tags</span><span class="model-field-type">list[str]</span></div>
+      </div>
+    </div>
+
+    <div class="model-card">
+      <div class="model-header" style="border-color:var(--purple);">
+        <span class="t-purple">◆</span>
+        <span class="model-name">AuditReport</span>
+      </div>
+      <div class="model-body">
+        <div class="model-field"><span class="model-field-name">findings</span><span class="model-field-type">list[Finding]</span></div>
+        <div class="model-field"><span class="model-field-name">scope</span><span class="model-field-type">ProjectScope</span></div>
+        <div class="model-field"><span class="model-field-name">metadata</span><span class="model-field-type">dict (date, model, tokens)</span></div>
+        <div class="model-field"><span class="model-field-name">poc_files</span><span class="model-field-type">list[str]</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Enums -->
+  <div style="margin-top:2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+    <div class="pipe-detail">
+      <div class="pipe-detail-label">Severity</div>
+      <div class="pipe-detail-val mono" style="font-size:0.78rem;">CRITICAL · HIGH · MEDIUM · LOW · INFO</div>
+    </div>
+    <div class="pipe-detail">
+      <div class="pipe-detail-label">VulnCategory (18)</div>
+      <div class="pipe-detail-val mono" style="font-size:0.78rem;">REENTRANCY · FLASH_LOAN · ACCESS_CONTROL · ORACLE · PRICE_MANIP · FRONT_RUNNING · GOVERNANCE · …</div>
+    </div>
+    <div class="pipe-detail">
+      <div class="pipe-detail-label">AnalysisPass</div>
+      <div class="pipe-detail-val mono" style="font-size:0.78rem;">A (Scope) · B (Function) · C (Cross-Contract) · D (Economic) · E (Validate) · F (PoC)</div>
+    </div>
+    <div class="pipe-detail">
+      <div class="pipe-detail-label">FindingSource</div>
+      <div class="pipe-detail-val mono" style="font-size:0.78rem;">SLITHER · ADERYN · LLM_FUNCTION_AUDIT · LLM_CROSS_CONTRACT · LLM_ECONOMIC</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- TECH STACK -->
+<section class="section" id="stack">
+  <div class="section-label">Technology</div>
+  <div class="section-title">Tech Stack</div>
+  <div class="section-desc">Purpose-built stack — no LangChain. Every component chosen for reliability and minimal abstraction overhead.</div>
+
+  <div class="stack-grid">
+
+    <div class="stack-card">
+      <div class="stack-category">AI / LLM</div>
+      <div class="stack-items">
+        <div class="stack-item"><div class="stack-dot" style="background:var(--cyan)"></div>Claude Sonnet 4.6 (code audit)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--blue)"></div>Claude Haiku 4.5 (economic pass)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--purple)"></div>Claude Opus 4.6 (heavy reasoning)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>anthropic Python SDK</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Tool-use structured output</div>
+      </div>
+    </div>
+
+    <div class="stack-card">
+      <div class="stack-category">Vector DB / Embeddings</div>
+      <div class="stack-items">
+        <div class="stack-item"><div class="stack-dot" style="background:var(--green)"></div>ChromaDB (local, production)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Pinecone (stub, planned)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--yellow)"></div>all-MiniLM-L6-v2 (384-dim)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>sentence-transformers ≥ 3.0</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>3 collections × RRF fusion</div>
+      </div>
+    </div>
+
+    <div class="stack-card">
+      <div class="stack-category">Static Analysis</div>
+      <div class="stack-items">
+        <div class="stack-item"><div class="stack-dot" style="background:var(--orange)"></div>Slither (Trail of Bits)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--orange)"></div>Aderyn (Cyfrin)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Mythril (config stub)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Semgrep (config stub)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Context-aware FP filter</div>
+      </div>
+    </div>
+
+    <div class="stack-card">
+      <div class="stack-category">PoC + Report</div>
+      <div class="stack-items">
+        <div class="stack-item"><div class="stack-dot" style="background:var(--purple)"></div>Foundry test scaffold gen</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--purple)"></div>Code4rena Markdown report</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Jinja2 templates (extensible)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Rich (terminal pretty-print)</div>
+      </div>
+    </div>
+
+    <div class="stack-card">
+      <div class="stack-category">Core Framework</div>
+      <div class="stack-items">
+        <div class="stack-item"><div class="stack-dot" style="background:var(--red)"></div>Python 3.11+</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--red)"></div>Pydantic v2 (all models)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--red)"></div>pydantic-settings (.env config)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Typer CLI</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>pytest (test suite)</div>
+      </div>
+    </div>
+
+    <div class="stack-card">
+      <div class="stack-category">API / Deployment</div>
+      <div class="stack-items">
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>FastAPI (stub — routes TBD)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>WebSocket async audits (planned)</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>Hatch build system</div>
+        <div class="stack-item"><div class="stack-dot" style="background:var(--t3)"></div>pyproject.toml packaging</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CLI -->
+<section class="section" id="cli">
+  <div class="section-label">Interface</div>
+  <div class="section-title">CLI Commands</div>
+  <div class="section-desc">Full audit, static-only, and knowledge base management commands. Always prefix with <span class="mono">PYTHONUTF8=1</span> on Windows.</div>
+
+  <div class="cli-block">
+    <div class="cli-bar">
+      <div class="cli-dot" style="background:#ff5f57"></div>
+      <div class="cli-dot" style="background:#febc2e"></div>
+      <div class="cli-dot" style="background:#28c840"></div>
+      <span style="font-size:0.75rem;color:var(--t3);margin-left:8px;">vulnhound</span>
+    </div>
+    <div class="cli-body">
+      <div class="cli-line"><span class="cli-comment"># Full 7-stage audit — outputs Code4rena Markdown report</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main audit https://github.com/user/defi-protocol -o report.md</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main audit ./contracts --skip-poc -s high -o report.md</span></div>
+      <br>
+      <div class="cli-line"><span class="cli-comment"># Static analysis only (no LLM, no API key needed)</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main analyze ./contracts -t slither</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main analyze ./contracts -t all</span></div>
+      <br>
+      <div class="cli-line"><span class="cli-comment"># Knowledge base management</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main kb ingest --source defihacklabs</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main kb search "reentrancy flash loan" -k 10</span></div>
+      <div class="cli-line"><span class="cli-prompt">$</span><span class="cli-cmd">PYTHONUTF8=1 python -m src.cli.main kb stats</span></div>
+      <br>
+      <div class="cli-line"><span class="cli-comment"># Flags: --min-severity/-s  --model/-m  --skip-poc  --verbose/-v  --top-k/-k</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ROADMAP -->
+<section class="section" id="roadmap">
+  <div class="section-label">Status</div>
+  <div class="section-title">Implementation Roadmap</div>
+  <div class="section-desc">Core 7-stage pipeline is feature-complete. Remaining work is KB expansion and production infrastructure.</div>
+
+  <div class="roadmap-grid">
+
+    <div class="roadmap-card done">
+      <div class="roadmap-phase">Phase 1 — Complete</div>
+      <div class="roadmap-title t-green">Core Pipeline</div>
+      <ul class="roadmap-items">
+        <li class="roadmap-item"><span class="ri-done">✓</span>Repo ingestion + AST parsing</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>Slither + Aderyn integration</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>ChromaDB + all-MiniLM embedder</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>DeFiHackLabs KB (671 vectors)</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>Triple-query RRF retriever</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>LLM Passes B/C/D (tool-use)</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>Jaccard dedup + CVSS rescorer</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>Foundry PoC scaffold gen</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>Code4rena Markdown reporter</li>
+        <li class="roadmap-item"><span class="ri-done">✓</span>Full CLI (audit/analyze/kb)</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-card partial">
+      <div class="roadmap-phase">Phase 2 — In Progress</div>
+      <div class="roadmap-title t-yellow">KB Expansion</div>
+      <ul class="roadmap-items">
+        <li class="roadmap-item"><span class="ri-partial">◐</span>Wire Solodit ingester to CLI</li>
+        <li class="roadmap-item"><span class="ri-partial">◐</span>Wire Rekt News ingester to CLI</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>OWASP SC Top 10 patterns</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>Code4rena / Sherlock findings</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>DefiLlama hacks dataset</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>Automated KB refresh pipeline</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-card">
+      <div class="roadmap-phase">Phase 3 — Planned</div>
+      <div class="roadmap-title">Production Infrastructure</div>
+      <ul class="roadmap-items">
+        <li class="roadmap-item"><span class="ri-todo">○</span>Pinecone vector store (prod)</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>FastAPI async audit server</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>WebSocket streaming results</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>REST API for CI/CD integration</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>Docker packaging</li>
+      </ul>
+    </div>
+
+    <div class="roadmap-card">
+      <div class="roadmap-phase">Phase 4 — Future</div>
+      <div class="roadmap-title">Advanced Capabilities</div>
+      <ul class="roadmap-items">
+        <li class="roadmap-item"><span class="ri-todo">○</span>Executable PoC generation (LLM)</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>Mythril formal verification</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>Semgrep custom rule engine</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>PDF report output</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>Multi-chain support (Solana VM)</li>
+        <li class="roadmap-item"><span class="ri-todo">○</span>GitHub Action integration</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Overall progress -->
+  <div style="margin-top:3rem;background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:2rem;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--t2);margin-bottom:1.5rem;">Overall Implementation Progress</div>
+    <div style="display:flex;flex-direction:column;gap:1.2rem;">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:0.78rem;margin-bottom:6px;">
+          <span class="t-green">Core Pipeline (7 stages)</span><span class="t-green">100%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--green);"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:0.78rem;margin-bottom:6px;">
+          <span class="t-yellow">Knowledge Base</span><span class="t-yellow">40%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:40%;background:var(--yellow);"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:0.78rem;margin-bottom:6px;">
+          <span class="t-red">Production Infra</span><span class="t-red">5%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:5%;background:var(--red);"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>VULNHOUND — AI Smart Contract Auditing Agent</div>
+  <div style="margin-top:0.4rem;color:var(--t3);">
+    <span>7 Stages</span> · <span>37 Modules</span> · <span>7,300+ LOC</span> · <span>Claude Sonnet 4.6</span> · <span>ChromaDB</span> · <span>Slither + Aderyn</span>
+  </div>
+</footer>
+
+<script>
+  // Side nav dot tracking
+  const sections = ['hero','pipeline','flow','llm','rag','kb','models','stack','cli','roadmap'];
+  const dots = document.querySelectorAll('.side-dot');
+
+  function updateDots() {
+    const scrollY = window.scrollY + window.innerHeight / 2;
+    let active = 0;
+    sections.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el && el.offsetTop <= scrollY) active = i;
+    });
+    dots.forEach((d, i) => d.classList.toggle('active', i === active));
+  }
+
+  window.addEventListener('scroll', updateDots, { passive: true });
+  updateDots();
+
+  dots.forEach((dot, i) => {
+    dot.addEventListener('click', () => {
+      const el = document.getElementById(sections[i]);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // Animate progress bars on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.progress-fill').forEach(b => {
+          const w = b.style.width;
+          b.style.width = '0';
+          setTimeout(() => { b.style.width = w; }, 100);
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+
+  document.querySelectorAll('.roadmap-card').forEach(c => observer.observe(c));
+</script>
+
+</body>
+</html>
